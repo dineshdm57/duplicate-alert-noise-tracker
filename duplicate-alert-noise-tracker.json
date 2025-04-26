@@ -1,0 +1,184 @@
+{
+  "created": "1745709301890",
+  "updated": "1745709301890",
+  "name": "duplicate-alert-noise-tracker",
+  "tags": [],
+  "services": [],
+  "domains": [],
+  "template": {
+    "displayName": "duplicate-alert-noise-tracker",
+    "trigger": {
+      "name": "trigger",
+      "valid": true,
+      "displayName": "Every X Minutes",
+      "type": "TRIGGER",
+      "settings": {
+        "blockName": "@openops/block-schedule",
+        "blockVersion": "~0.1.5",
+        "blockType": "OFFICIAL",
+        "packageType": "REGISTRY",
+        "input": {
+          "minutes": 5
+        },
+        "inputUiInfo": {
+          "customizedInputs": {}
+        },
+        "triggerName": "every_x_minutes"
+      },
+      "nextAction": {
+        "name": "step_1",
+        "type": "BLOCK",
+        "valid": true,
+        "settings": {
+          "input": {
+            "url": "https://api.datadoghq.com/api/v1/alerts",
+            "body": {},
+            "method": "GET",
+            "headers": {
+              "Content-Type": "application/json\n",
+              "Authorization": "Bearer <your-api-key>"
+            },
+            "timeout": null,
+            "failsafe": false,
+            "body_type": "none",
+            "use_proxy": false,
+            "queryParams": {
+              "end_time": "now",
+              "start_time": "ast few minutes (calculate dynamically if possible)."
+            },
+            "proxy_settings": {}
+          },
+          "blockName": "@openops/block-http",
+          "blockType": "OFFICIAL",
+          "actionName": "send_request",
+          "inputUiInfo": {
+            "customizedInputs": {}
+          },
+          "packageType": "REGISTRY",
+          "blockVersion": "~0.5.1",
+          "errorHandlingOptions": {
+            "retryOnFailure": {
+              "value": false
+            },
+            "continueOnFailure": {
+              "value": false
+            }
+          }
+        },
+        "nextAction": {
+          "name": "step_2",
+          "type": "LOOP_ON_ITEMS",
+          "valid": true,
+          "settings": {
+            "items": "Output from step 02",
+            "inputUiInfo": {
+              "customizedInputs": {}
+            }
+          },
+          "nextAction": {
+            "name": "step_5",
+            "type": "BLOCK",
+            "valid": true,
+            "settings": {
+              "input": {},
+              "blockName": "@openops/block-end-flow",
+              "blockType": "OFFICIAL",
+              "actionName": "end_workflow",
+              "inputUiInfo": {
+                "customizedInputs": {}
+              },
+              "packageType": "REGISTRY",
+              "blockVersion": "~0.0.1",
+              "errorHandlingOptions": {
+                "retryOnFailure": {
+                  "value": false
+                },
+                "continueOnFailure": {
+                  "value": false
+                }
+              }
+            },
+            "displayName": "End Workflow"
+          },
+          "displayName": "Loop on Items",
+          "firstLoopAction": {
+            "name": "step_3",
+            "type": "CODE",
+            "valid": true,
+            "settings": {
+              "input": {
+                "alertTime": "item.timestamp",
+                "alertTitle": "item.title",
+                "alertSource": "item.source"
+              },
+              "sourceCode": {
+                "code": "export const code = async (inputs) => {\n  const { alertTitle, alertTime, alertSource } = inputs;\n\n  // You can enhance this memory to track last alerts if needed\n  // For now, simulate: if title is same, and time is within 5 minutes, it's duplicate\n\n  const previousAlerts = globalThis.previousAlerts || [];\n  \n  const fiveMinutes = 5 * 60 * 1000;\n  const now = new Date(alertTime).getTime();\n\n  const duplicate = previousAlerts.some(prev => \n    prev.title === alertTitle &&\n    Math.abs(new Date(prev.time).getTime() - now) <= fiveMinutes\n  );\n\n  if (!duplicate) {\n    previousAlerts.push({ title: alertTitle, time: alertTime, source: alertSource });\n    globalThis.previousAlerts = previousAlerts;\n    return null; // No duplicate\n  } else {\n    return `Duplicate alert detected: ${alertTitle} from ${alertSource}`;\n  }\n};\n",
+                "packageJson": "{}"
+              },
+              "inputUiInfo": {
+                "customizedInputs": {}
+              },
+              "errorHandlingOptions": {
+                "retryOnFailure": {
+                  "value": false
+                },
+                "continueOnFailure": {
+                  "value": false
+                }
+              }
+            },
+            "nextAction": {
+              "name": "step_4",
+              "type": "BLOCK",
+              "valid": false,
+              "settings": {
+                "input": {
+                  "auth": null,
+                  "file": null,
+                  "text": {
+                    "text": "{{steps.CODE_BLOCK_NAME.output}}"
+                  },
+                  "blocks": {},
+                  "threadTs": null,
+                  "username": null,
+                  "headerText": {
+                    "headerText": null
+                  },
+                  "conversationId": null,
+                  "blockKitEnabled": false
+                },
+                "blockName": "@openops/block-slack",
+                "blockType": "OFFICIAL",
+                "actionName": "send_slack_message",
+                "inputUiInfo": {
+                  "customizedInputs": {}
+                },
+                "packageType": "REGISTRY",
+                "blockVersion": "~0.5.2",
+                "errorHandlingOptions": {
+                  "retryOnFailure": {
+                    "value": false
+                  },
+                  "continueOnFailure": {
+                    "value": false
+                  }
+                }
+              },
+              "displayName": "Send Message"
+            },
+            "displayName": "Custom TypeScript Code"
+          }
+        },
+        "displayName": "Send HTTP request"
+      }
+    },
+    "valid": false,
+    "description": ""
+  },
+  "blocks": [
+    "@openops/block-schedule",
+    "@openops/block-http",
+    "@openops/block-slack",
+    "@openops/block-end-flow"
+  ]
+}
